@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calculadora de Preço Teto — Macollin Felipe</title>
+
+  <!-- Bibliotecas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.4.3/decimal.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{ --navy: #042135; --green: #10b981; --muted:#94a3b8; --card:#071427; --bg:#f4f7fb }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
+    body{margin:0;background:var(--bg);color:#0f1724}
+    header{background:linear-gradient(180deg,var(--navy),#04283a);color:white;padding:18px 24px}
+    .wrap{max-width:1100px;margin:20px auto;padding:0 18px}
+    .brand{display:flex;align-items:center;gap:14px}
+    .brand h1{font-size:20px;margin:0}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:20px;margin-top:18px}
+
+    .card{background:white;padding:20px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
+    .calc-card{background:linear-gradient(180deg,var(--navy),#05293a);padding:18px;border-radius:12px;color:white;border:1px solid rgba(255,255,255,0.04)}
+    .field{margin-bottom:12px}
+    label{display:block;font-size:13px;margin-bottom:6px;color:rgba(255,255,255,0.9)}
+    input[type=number], input[type=text]{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:white}
+    .btn{background:var(--green);border:none;color:#042025;padding:10px 12px;border-radius:8px;font-weight:700;cursor:pointer}
+    .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:white}
+    .result{margin-top:12px;background:rgba(255,255,255,0.02);padding:12px;border-radius:10px}
+    .big{font-size:20px;font-weight:700}
+    .muted{color:var(--muted)}
+    .chart-wrap{margin-top:20px}
+    .chart-card{background:white;padding:14px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.04)}
+    canvas{width:100%!important;height:260px!important}
+    .recommendation{margin-top:12px;padding:10px;border-radius:8px;font-weight:700;text-align:center}
+    .buy{background:#d1fae5;color:#065f46}
+    .hold{background:#fef3c7;color:#92400e}
+    .wait{background:#fee2e2;color:#991b1b}
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.calc-card{order:2}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap brand">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" style="border-radius:8px;background:var(--green);padding:6px"><path d="M6 14l3-6 3 8 3-10 3 6" stroke="#042025" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div>
+        <h1>Macollin Felipe — Calculadora de Preço Teto</h1>
+        <div style="font-size:13px;color:rgba(255,255,255,0.85)">Determine rapidamente se é momento de comprar uma ação com base em proventos.</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <div class="card">
+        <h2>Como usar esta calculadora</h2>
+        <p>Esta ferramenta calcula o <strong>preço-teto</strong> de uma ação a partir dos dividendos, LPA (lucro por ação) e do payout, permitindo análises mais completas.</p>
+      </div>
+
+      <aside class="calc-card card">
+        <div class="field">
+          <label for="ticker">Ticker (opcional)</label>
+          <input id="ticker" type="text" placeholder="Ex: PETR4" />
+        </div>
+        <div class="field">
+          <label for="marketPrice">Preço de mercado atual (R$)</label>
+          <input id="marketPrice" type="number" step="0.01" placeholder="Ex: 25.50" />
+        </div>
+        <div class="field">
+          <label for="divPerShare">Dividendos anuais por ação (R$)</label>
+          <input id="divPerShare" type="number" step="0.0001" placeholder="Ex: 1.20" />
+        </div>
+        <div class="field">
+          <label for="lpa">Lucro por Ação (LPA)</label>
+          <input id="lpa" type="number" step="0.01" placeholder="Ex: 5.00" />
+        </div>
+        <div class="field">
+          <label for="payout">Payout (%)</label>
+          <input id="payout" type="number" step="0.01" placeholder="Ex: 30" />
+        </div>
+        <div class="row" style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label for="requiredReturn">Retorno mínimo aceitável (% a.a.)</label>
+            <input id="requiredReturn" type="number" value="6" step="0.01" />
+          </div>
+          <div style="width:120px">
+            <label for="margin">Margem segurança (%)</label>
+            <input id="margin" type="number" value="30" step="1" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn" id="calcBtn">Calcular</button>
+          <button class="btn secondary" id="resetBtn">Limpar</button>
+        </div>
+
+        <div class="result" id="resultArea" style="color:white">
+          <div class="muted">Ticker</div>
+          <div class="big" id="outTicker">-</div>
+          <div style="margin-top:8px;color:var(--muted)">Preço teto (sem margem)</div>
+          <div class="big" id="outPriceTeto">R$ 0,00</div>
+          <div style="margin-top:8px;color:var(--muted)">Preço teto (com margem)</div>
+          <div class="big" id="outPriceTetoMS">R$ 0,00</div>
+          <div style="margin-top:8px;color:var(--muted)">Preço de mercado</div>
+          <div class="big" id="outMarketPrice">R$ —</div>
+          <div style="margin-top:8px;color:var(--muted)">Yield implícito</div>
+          <div class="big" id="outYield">0.00%</div>
+          <div id="recommendationBox" class="recommendation" style="display:none"></div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-card">
+        <h3 style="margin:0 0 8px 0">Comparativo — Preço atual vs Preço-Teto</h3>
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+
+    <footer>
+      <div>Desenvolvido por <strong>Macollin Felipe</strong> • <a href="https://www.youtube.com/@macollinfelipe" target="_blank">Canal no YouTube</a></div>
+    </footer>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    function computeValues() {
+      const ticker = $("ticker").value.trim().toUpperCase() || '-';
+      const marketPrice = new Decimal(parseFloat($("marketPrice").value || 0));
+      const dividend = new Decimal(parseFloat($("divPerShare").value || 0));
+      const lpa = new Decimal(parseFloat($("lpa").value || 0));
+      const payout = new Decimal(parseFloat($("payout").value || 0)).div(100);
+      const required = new Decimal(parseFloat($("requiredReturn").value || 6)).div(100);
+      const margin = new Decimal(parseFloat($("margin").value || 30)).div(100);
+      return { ticker, dividend, lpa, payout, marketPrice, required, margin };
+    }
+
+    function calculateAndRender() {
+      const { ticker, dividend, lpa, payout, marketPrice, required, margin } = computeValues();
+
+      let effectiveDividend = dividend;
+      if (effectiveDividend.eq(0) && lpa.gt(0) && payout.gt(0)) {
+        effectiveDividend = lpa.mul(payout);
+      }
+
+      if (effectiveDividend.lte(0) || required.lte(0)) {
+        alert('Preencha dividendos ou forneça LPA e Payout válidos, além do retorno mínimo.');
+        return;
+      }
+
+      const priceTeto = effectiveDividend.div(required);
+      const priceTetoMS = priceTeto.mul(new Decimal(1).minus(margin));
+      const implYield = marketPrice.gt(0) ? effectiveDividend.div(marketPrice) : new Decimal(0);
+
+      $("outTicker").textContent = ticker;
+      $("outPriceTeto").textContent = 'R$ ' + priceTeto.toFixed(2);
+      $("outPriceTetoMS").textContent = 'R$ ' + priceTetoMS.toFixed(2);
+      $("outMarketPrice").textContent = marketPrice.gt(0) ? 'R$ ' + marketPrice.toFixed(2) : 'R$ —';
+      $("outYield").textContent = (implYield.mul(100)).toFixed(2) + '%';
+
+      const recBox = $("recommendationBox");
+      if (marketPrice.gt(0)) {
+        if (marketPrice.lte(priceTetoMS)) {
+          recBox.textContent = 'Momento de comprar (preço atrativo com margem de segurança).';
+          recBox.className = 'recommendation buy';
+          recBox.style.display = 'block';
+        } else if (marketPrice.lte(priceTeto)) {
+          recBox.textContent = 'Preço razoável (próximo ao preço-teto, avalie com cautela).';
+          recBox.className = 'recommendation hold';
+          recBox.style.display = 'block';
+        } else {
+          recBox.textContent = 'Aguardar: preço acima do teto, não recomendado comprar agora.';
+          recBox.className = 'recommendation wait';
+          recBox.style.display = 'block';
+        }
+      } else {
+        recBox.style.display = 'none';
+      }
+
+      drawChart(priceTeto.toNumber(), priceTetoMS.toNumber(), marketPrice.toNumber());
+    }
+
+    function drawChart(priceTeto, priceTetoMS, marketPrice) {
+      const ctx = $("chart").getContext('2d');
+      if (window._chartInstance) {
+        window._chartInstance.destroy();
+      }
+
+      const maxVal = Math.max(priceTeto, priceTetoMS, marketPrice, 1) * 1.15;
+
+      const data = {
+        labels: ['Preço de Mercado', 'Preço Teto', 'Preço Teto c/ Margem'],
+        datasets: [
+          {
+            label: 'Valor (R$)',
+            data: [marketPrice, priceTeto, priceTetoMS],
+            fill: false,
+            borderColor: '#10b981',
+            tension: 0.2,
+            pointRadius: 6
+          }
+        ]
+      };
+
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            min: 0,
+            max: maxVal,
+            ticks: {
+              callback: function (v) {
+                return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                return 'R$ ' + Number(context.parsed.y).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              }
+            }
+          }
+        }
+      };
+
+      window._chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: data,
+        options: options
+      });
+    }
+
+    $("calcBtn").addEventListener('click', calculateAndRender);
+    $("resetBtn").addEventListener('click', function () {
+      ['ticker', 'marketPrice', 'divPerShare', 'lpa', 'payout'].forEach(function (id) { $(id).value = ''; });
+      $("requiredReturn").value = '6';
+      $("margin").value = '30';
+      $("outTicker").textContent = '-';
+      $("outPriceTeto").textContent = 'R$ 0,00';
+      $("outPriceTetoMS").textContent = 'R$ 0,00';
+      $("outMarketPrice").textContent = 'R$ —';
+      $("outYield").textContent = '0.00%';
+      $("recommendationBox").style.display = 'none';
+      if (window._chartInstance) window._chartInstance.destroy();
+    });
+
+    drawChart(0, 0, 0);
+  </script>
+</body>
+</html>
